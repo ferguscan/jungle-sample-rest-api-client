@@ -1,4 +1,5 @@
 // Paginate through inventory records, spitting them out to the console
+import AsyncRetry from "async-retry";
 import { InventoryModelWithRelations, InventoryService, PageInfo } from "./generated";
 
 type InventoryType = {
@@ -13,11 +14,20 @@ async function getInventory() {
   let pageCount = 1;
 
   do {
-    const inventory: InventoryType = await InventoryService.inventoryFind(
-      process.env.JUNGLE_AUTH_HEADER,
-      nextCursor,
-      100,
-      "100" // Location ID 100
+    const inventory: InventoryType = await AsyncRetry(
+      () =>
+        InventoryService.inventoryFind(
+          process.env.JUNGLE_AUTH_HEADER,
+          nextCursor,
+          100,
+          "100" // Location ID 100
+        ),
+      {
+        retries: 5,
+        onRetry: (err) => {
+          console.log(`Error when finding inventory ${err}`);
+        },
+      }
     );
 
     hasMore = inventory.pageInfo?.hasMore;
